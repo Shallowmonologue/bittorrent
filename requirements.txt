@@ -1,2 +1,2 @@
 requests~=2.18.4
-bencodepy
+bencode.py~=4.0.0
