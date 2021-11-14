@@ -3,8 +3,9 @@ import socket
 import struct
 import sys
 import traceback
-import requests
+
 import bencodepy
+import requests
 
 from settings import SETTINGS
 
@@ -22,13 +23,13 @@ def get_peers_list_by_torrent_metainfo(metainfo):
         try:
             if announce.startswith('http'):
                 get_method = _get_peers_from_http_tracker
-            else:
+            elif announce.startswith('udp'):
                 get_method = _get_peers_from_udp_tracker
-            if get_method is None:
+            else:
                 continue
             return get_method(announce, metainfo)
         except Exception:
-            # traceback.print_exc(file=sys.stdout)
+            traceback.print_exc(file=sys.stdout)
             continue
     raise PeersFindingError('Could not find peers!')
 
@@ -59,7 +60,6 @@ def _get_peers_from_http_tracker(announce, metainfo):
 
     # parse the bencoded reply and check for any errors
     peers = bencodepy.decode(response.content)
-    check_for_error(peers)
 
     # binary model of peers
     if isinstance(peers[b'peers'], bytes):
@@ -68,20 +68,6 @@ def _get_peers_from_http_tracker(announce, metainfo):
     else:
         peers = _get_peers_list_model(peers[b'peers'])
     return peers
-
-
-def check_for_error(tracker_response):
-    """
-    Check if tracker responded with an error in the response (applies only to HTTP tracker response)
-    :param tracker_response: Response of the tracker
-    :return: None
-    """
-    try:
-        message = tracker_response.decode("utf-8")
-        if "failure" in message:
-            raise ConnectionError(f"Unable to connect to tracker: {message}")
-    except UnicodeDecodeError:
-        pass
 
 
 def _get_http_request_args(metainfo):
@@ -203,7 +189,7 @@ def _get_udp_announce_request(connection_id, transaction_id, metainfo):
 def _get_peers_list_model(peers_list):
     """
     Return peers list from list of dictionaries.
-    :param peers_list: list of dictionaries in the form [{b'ip': <ip>, b'port': <port> ...}
+    :param peers_list: list of dictionaries in the form [{b'ip': <ip>, b'port': <port>} ...]
     :return: List of tuples in the form [(ip, port), ...]
     """
     res_peers = []
