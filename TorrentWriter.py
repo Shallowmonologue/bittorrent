@@ -152,4 +152,4 @@ class TorrentWriter:
             # seek to the end of the file
             f.seek(length - 1)
             # write byte with value=0
-            f.write(b'\x00')
+            f.write(b'\x00')  
