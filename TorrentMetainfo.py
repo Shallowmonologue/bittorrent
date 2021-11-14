@@ -28,9 +28,21 @@ class TorrentMetainfo:
             res += str(file) + "\n"
         return res
 
+    def get_piece_len_at(self, piece_idx):
+        """
+        Get the length of piece at the given piece index.
+        :param piece_idx: piece index
+        :return: length of piece
+        """
+        return (self.piece_length if piece_idx < len(self.pieces) - 1
+                else self.length - (len(self.pieces) - 1) * self.piece_length)
+
     def _parse_torrent_file(self, filename):
-        if not TorrentMetainfo.is_valid_torrent_file(filename):
-            return
+        """
+        Parse the torrent file and initialize the metainfo.
+        :param filename: file name
+        :return: None
+        """
         # read and decode bencoded file
         meta_info = bencodepy.bread(open(filename, 'rb'))
         # get the info
@@ -47,21 +59,12 @@ class TorrentMetainfo:
             self._add_announces(meta_info[b'announce-list'])
         self._decode_info(meta_info[b'info'])
 
-    @staticmethod
-    def is_valid_torrent_file(filename):
-        # check if the given file is a valid torrent file
-        try:
-            if not os.path.isfile(filename):
-                raise RuntimeError(f"Exception: \"{filename}\" doesn't exist.")
-
-            elif not filename.endswith(".torrent"):
-                raise RuntimeError(f"Exception: \"{filename}\" is not a valid torrent file.")
-        except RuntimeError as e:
-            return False
-
-        return True
-
     def _add_announces(self, announces):
+        """
+        Add announces from the announce-list.
+        :param announces: announces list
+        :return: None
+        """
         # get all announces from announce-list and add to announce_list
         for cur_ann_list in announces:
             for bin_announce in cur_ann_list:
@@ -71,6 +74,11 @@ class TorrentMetainfo:
                     self.announce_list.append(str_announce)
 
     def _decode_info(self, meta_info):
+        """
+        Decode the metainfo and initialize the fields.
+        :param meta_info: metainfo
+        :return: None
+        """
         # set name from the meta_info
         self.name = meta_info[b'name'].decode()
         # set piece_length
@@ -89,7 +97,7 @@ class TorrentMetainfo:
             '''
             files: list of dictionaries like:
             [
-                {length: <length of file in integer>, path: <path of the file>},
+                {length: <length of file in integer>, path: [path_seg1, path_seg2, ..., path_segn, filename.ext]},
                 ...
             ]
             '''
