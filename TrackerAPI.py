@@ -5,6 +5,7 @@ import sys
 import traceback
 
 import bencodepy
+import bencode
 import requests
 
 from settings import SETTINGS
@@ -59,7 +60,10 @@ def _get_peers_from_http_tracker(announce, metainfo):
                             timeout=SETTINGS['timeout'])
 
     # parse the bencoded reply and check for any errors
-    peers = bencodepy.decode(response.content)
+    peers = bencode.decode(response.content)
+
+
+
 
     # binary model of peers
     if isinstance(peers[b'peers'], bytes):

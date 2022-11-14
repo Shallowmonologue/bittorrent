@@ -1,7 +1,7 @@
 import hashlib
 import os
+import bencode
 import bencodepy
-
 
 class TorrentMetainfo:
     def __init__(self, filename):
@@ -44,9 +44,10 @@ class TorrentMetainfo:
         :return: None
         """
         # read and decode bencoded file
-        meta_info = bencodepy.bread(open(filename, 'rb'))
+        #meta_info = bencodepy.bread(open(filename, 'rb'))
+        meta_info = bencode.readfile(open(filename, 'rb'))
         # get the info
-        info = bencodepy.encode(meta_info[b"info"])
+        info = bencode.encode(meta_info[b"info"])
         # compute sha1 hash of info
         sha1_hash = hashlib.sha1(info)
         # store the info hash
