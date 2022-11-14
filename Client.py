@@ -7,7 +7,7 @@ from Torrent import Torrent
 from TorrentMetainfo import TorrentMetainfo
 
 
-class CLI:
+class Client:
     max_name_len = 28
 
     def __init__(self, path):
@@ -18,9 +18,11 @@ class CLI:
         self.torrent = Torrent(metainfo)
 
     @staticmethod
+    # 进度条清屏
     def cls():
         os.system('cls' if os.name == 'nt' else 'clear')
 
+    # 多线程并发
     def run(self):
         t1 = Thread(target=self.print_torrents_table_always,
                     args=(), daemon=True)
@@ -30,7 +32,8 @@ class CLI:
         t2.start()
         t1.join()
         t2.join()
-  
+
+    # 设定下载进度条格式
     def print_torrents_table_always(self):
         while True:
             time.sleep(.5)

@@ -10,13 +10,14 @@ class TorrentWriter:
     @property
     def downloads_dir(self):
         """
-        Get the download directory for the torrent.
-        :return: downloads directory
+        指定下载内容的储存路径
+        :return: 下载路径
         """
         return self._downloads_dir
 
     def get_uncompleted_piece_indexes(self):
         """
+        使用列表metainfo来储存不完整的pieces的索引
         Get the list of incomplete piece indices using metainfo.
         :return: list of incomplete piece indices
         """
@@ -28,10 +29,9 @@ class TorrentWriter:
     @staticmethod
     def get_info_about_pieced_from_bytes(data):
         """
-        Get the bits from the bytes and then get which pieces are available,
-        1 indicates that the piece is available.
-        :param data: data in bytes
-        :return: list of bits from the bytes data
+        从bitfield信息查看可获取的pieces，其中1代表着该pieces可获取
+        :param data: 字节类型的数据
+        :return: 比特类型的数据（从字节类型转化的）
         """
         def bits_in_byte(cur_byte):
             str_byte = bin(cur_byte)[2:]
@@ -47,7 +47,7 @@ class TorrentWriter:
 
     def check_place_to_download(self):
         """
-        Check if the downloads directory exists; otherwise create it.
+        若指定的下载路径不存在，则创建该路径
         :return: None
         """
         path_to_place = os.path.join(self.downloads_dir, self.metainfo.name)
@@ -56,9 +56,9 @@ class TorrentWriter:
 
     def write_piece(self, piece_idx, piece):
         """
-        Write the piece to the file with the given piece index and piece data.
-        :param piece_idx: piece index
-        :param piece: piece data in bytes
+        对于可获取的piece进行写入
+        :param piece_idx: piece的索引
+        :param piece: piece数据（字节类型）
         :return: None
         """
         piece_offset_in_data = piece_idx * self.metainfo.piece_length
@@ -96,16 +96,20 @@ class TorrentWriter:
                 file_idx += 1
 
     @staticmethod
-    def _write_data_in_single_file(
-            file_path, offset_in_file, offset_in_piece, data_len, piece):
+    def _write_data_in_single_file(file_path, offset_in_file, offset_in_piece, data_len, piece):
+        '''
+        依据路径写入对应数据
+        :param offset_in_file: 写入数据位于文件中的位置
+        :param offset_in_piece: 写入数据位于piece中的位置
+        :return: None
+        '''
         with open(file_path, 'r+b') as f:
             f.seek(offset_in_file)
             f.write(piece[offset_in_piece: offset_in_piece + data_len])
 
     def create_place_to_download(self):
         """
-        Create a single empty file single-file torrent; otherwise create multiple
-        empty files in the base directory.
+        对单个bittorrent文件创建单个空文件,多个bittorrent文件则创建多个空文件
         :return: None
         """
         if self.metainfo.is_single_file:
@@ -116,9 +120,9 @@ class TorrentWriter:
 
     def _create_single_empty_file(self, file_path, length):
         """
-        Create the single empty file with given file_path and the length.
-        :param file_path: file path
-        :param length: file length
+        对于单个空文件定义其路径与长度
+        :param file_path: 文件路径
+        :param length: 文件长度
         :return: None
         """
         full_path = os.path.join(self.downloads_dir, file_path)
@@ -128,28 +132,25 @@ class TorrentWriter:
 
     def _create_empty_files(self):
         """
-        Create multiple empty files in the base directory given in metainfo.
+        对于多个空文件则根据meataifo完成创建
         :return: None
         """
         base_dir = self.metainfo.name
-        # traverse files from metainfo and create empty files
+        # 从metainfo遍历文件再创建空文件
         for file_dict in self.metainfo.files:
-            # create the file path by appending the base directory
+            # 指定创建文件目录
             file_path = os.path.join(base_dir, file_dict['path'])
-            # create the single file
+            # 调用单个空文件创建函数
             self._create_single_empty_file(file_path, file_dict['length'])
 
     @staticmethod
     def _create_empty_file(file_path, length):
         """
-        Create empty file of the given length at the given file path.
-        :param file_path: file path
-        :param length: file length
-        :return: None
+        空文件创建.使用\x00覆盖
         """
-        # open file in binary mode for writing
+        # 创建用于写入的二进制文件
         with open(file_path, 'wb') as f:
-            # seek to the end of the file
+            # 文件末尾
             f.seek(length - 1)
-            # write byte with value=0
+            # 用0值覆盖
             f.write(b'\x00')  

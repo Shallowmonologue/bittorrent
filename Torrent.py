@@ -13,10 +13,11 @@ from Peer import Peer
 class Torrent:
     def __init__(self, metainfo):
         self.metainfo = metainfo
-        # length of total downloaded data in torrent
+        # torrent文件中下载内容的长度
         self.downloaded_data_len = 0
         self.prev_time = time.time()
         # torrent writer
+        # 将下载内容读写至磁盘
         self.writer = TorrentWriter(metainfo)
         self.prev_peers_count = 1
         # peers dict
