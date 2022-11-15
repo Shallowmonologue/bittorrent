@@ -5,7 +5,7 @@ import sys
 import traceback
 import requests
 
-import bencode
+import Bencode
 from Config import SETTINGS
 
 # 判断当前announce url链接是否为UDP格式
@@ -58,8 +58,9 @@ def _get_peers_from_http_tracker(announce, metainfo):
     response = requests.get(announce, _get_http_request_args(metainfo),
                             timeout=SETTINGS['timeout'])
 
+
     # 解析bencode的响应
-    peers = bencode.decode(response.content)
+    peers = Bencode.decode(response.content)
 
     # 处理binary类型的peer数据
     if isinstance(peers[b'peers'], bytes):
