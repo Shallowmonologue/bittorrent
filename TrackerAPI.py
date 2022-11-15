@@ -53,11 +53,9 @@ def _get_peers_from_http_tracker(announce, metainfo):
     :param metainfo: metainfo
     :return: [(ip,port)]的元组列表
     """
-
     # 向http tracker发送请求，并解析该响应
     response = requests.get(announce, _get_http_request_args(metainfo),
                             timeout=SETTINGS['timeout'])
-
 
     # 解析bencode的响应
     peers = Bencode.decode(response.content)
@@ -77,8 +75,6 @@ def _get_http_request_args(metainfo):
     :param metainfo:metainfo
     :return:请求参数的字典
     """
-
-    # 参考: https://wiki.theory.org/index.php/BitTorrentSpecification#Tracker_Request_Parameters
     request = {
         'info_hash': metainfo.info_hash,
         'peer_id': SETTINGS['peer_id'],
@@ -96,8 +92,6 @@ def _get_peers_from_udp_tracker(announce, metainfo):
     :param metainfo: metainfo
     :return: [(ip,port)]的元组列表
     """
-
-    # 参考: http://bittorrent.org/beps/bep_0015.html
     # 建立一个连接UDP tracker的UDP套接字
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
         # 设置超时参数

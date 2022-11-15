@@ -2,11 +2,11 @@ from dataclasses import dataclass
 from typing import Union
 
 # 得到标志位的unicode编码
-COLON = ord(":") #冒号 ：
-END_MARKER = ord("e") #结束标志 e
-START_DICT = ord("d") #字典开始 d
-START_INTEGER = ord("i") #整数开始 i
-START_LIST = ord("l") #列表开始 l
+COLON = ord(":")  # 冒号 ：
+END_MARKER = ord("e")  # 结束标志 e
+START_DICT = ord("d")  # 字典开始 d
+START_INTEGER = ord("i")  # 整数开始 i
+START_LIST = ord("l")  # 列表开始 l
 
 
 @dataclass
