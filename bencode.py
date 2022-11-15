@@ -1,37 +1,44 @@
+"""Code, which deals with bencoded data."""
 from dataclasses import dataclass
 from typing import Union
 
-# 得到标志位的unicode编码
-COLON = ord(":") #冒号 ：
-END_MARKER = ord("e") #结束标志 e
-START_DICT = ord("d") #字典开始 d
-START_INTEGER = ord("i") #整数开始 i
-START_LIST = ord("l") #列表开始 l
+COLON = ord(":")
+END_MARKER = ord("e")
+START_DICT = ord("d")
+START_INTEGER = ord("i")
+START_LIST = ord("l")
 
 
 @dataclass
 class BencodedString:
-    """处理bencode字符串的类"""
+    """An internal container for bencoded strings"""
 
     def __init__(self, data):
-        """构造函数，把数据转换为byte"""
+        """Called when the object is created, sets its attributes"""
         self.bytes = bytearray(data)
 
     def del_prefix(self, index):
-        """删除指定长度的前缀"""
+        """Delete the prefix of specified length"""
         del self.bytes[:index]
 
     def get_prefix(self, index):
-        """得到指定长度的前缀"""
+        """Get the prefix of specified length (as bytes)"""
         return bytes(self.bytes[:index])
 
 
 def _decode(data: BencodedString) -> Union[bytes, dict, int, list]:
-    """将bencode字符串类转换为Python基本属性的对象
-       参数：
-            bencode字符串类型数据
-       返回值：
-            python基本对象
+    """Convert the given bencoded string to a Python object.
+
+    Args:
+        Some BencodedString
+
+    Raises:
+        ValueError:
+            If the argument is empty
+            If the first byte doesn't match a supported by bencode data type
+
+    Returns:
+        A Python object
     """
     if not data.bytes:
         raise ValueError("Cannot decode an empty bencoded string.")
@@ -53,16 +60,22 @@ def _decode(data: BencodedString) -> Union[bytes, dict, int, list]:
         f"'d', 'i', 'l' or a digit, got {chr(data.bytes[0])!r} instead."
     )
 
-def _decode_bytes(data: BencodedString) -> bytes:
-    """
-    解码bytes类型开头的bencode字符串数据
-    输入：
-        bytes类型开头的bencode字符串
-    返回值：
-        解析的byte字符串
-    """
 
-    # 得到byte的长度，通过冒号分隔符找到
+def _decode_bytes(data: BencodedString) -> bytes:
+    """Extract the first byte string from the given bencoded string
+
+    Args:
+        Some BencodedString, which starts with a byte string
+
+    Raises:
+        ValueError:
+            If the byte string doesn't contain a delimiter
+            If the real string length is shorter, than the prefix length
+
+    Returns:
+        An extracted byte string
+    """
+    # Get byte string length
     delimiter_index = data.bytes.find(COLON)
 
     if delimiter_index > 0:
@@ -75,7 +88,7 @@ def _decode_bytes(data: BencodedString) -> bytes:
             "Most likely the bencoded string is incomplete or incorrect."
         )
 
-    # 得到byte数据
+    # Get byte string data
     if len(data.bytes) >= string_length:
         result_bytes = data.get_prefix(string_length)
         data.del_prefix(string_length)
@@ -90,12 +103,16 @@ def _decode_bytes(data: BencodedString) -> bytes:
 
 
 def _decode_dict(data: BencodedString) -> dict:
-    """
-    解码dict类型开头的bencode字符串数据
-    输入：
-        dict类型开头的bencode字符串
-    返回值：
-        解析的dict对象
+    """Extract the first dict from the given bencoded string
+
+    Args:
+        Some BencodedString, which starts with a dictionary
+
+    Raises:
+        ValueError: If bencoded string ended before the end marker was found
+
+    Returns:
+        An extracted dictionary
     """
     result_dict = {}
     data.del_prefix(1)
@@ -120,14 +137,17 @@ def _decode_dict(data: BencodedString) -> dict:
 
 
 def _decode_int(data: BencodedString) -> int:
-    """
-    解码int类型开头的bencode字符串数据
-    输入：
-        int类型开头的bencode字符串
-    返回值：
-        解析的int数据
-    """
+    """Extract the first integer from the given bencoded string
 
+    Args:
+        Some BencodedString, which starts with an integer
+
+    Raises:
+        ValueError: If bencoded string ended before the end marker was found
+
+    Returns:
+        An extracted integer
+    """
     data.del_prefix(1)
     end_marker_index = data.bytes.find(END_MARKER)
 
@@ -145,12 +165,16 @@ def _decode_int(data: BencodedString) -> int:
 
 
 def _decode_list(data: BencodedString) -> list:
-    """
-    解码list类型开头的bencode字符串数据
-    输入：
-        list类型开头的bencode字符串
-    返回值：
-        解析的list
+    """Extract the first list from the given bencoded string
+
+    Args:
+        Some BencodedString, which starts with a list
+
+    Raises:
+        ValueError: If bencoded string ended before the end marker was found
+
+    Returns:
+        An extracted list
     """
     result_list = []
     data.del_prefix(1)
@@ -173,12 +197,12 @@ def _decode_list(data: BencodedString) -> list:
 
 
 def _encode_bytes(source: bytes) -> bytes:
-    """编码bytes对象到bencode字符串"""
+    """Encode provided bytes as a bencoded string"""
     return str(len(source)).encode("ascii") + b":" + source
 
 
 def _encode_dict(source: dict) -> bytes:
-    """编码dict对象到bencode字符串"""
+    """Encode provided dictionary as a bencoded string"""
     result_data = b"d"
 
     for key, value in source.items():
@@ -188,12 +212,12 @@ def _encode_dict(source: dict) -> bytes:
 
 
 def _encode_int(source: int) -> bytes:
-    """编码int对象到bencode字符串"""
+    """Encode provided integer as a bencoded string"""
     return b"i" + str(source).encode("ascii") + b"e"
 
 
 def _encode_list(source: list) -> bytes:
-    """编码llist对象到bencode字符串"""
+    """Encode provided list as a bencoded string"""
     result_data = b"l"
 
     for item in source:
@@ -203,14 +227,16 @@ def _encode_list(source: list) -> bytes:
 
 
 def decode(data: bytes) -> Union[bytes, dict, int, list]:
-    """
-    bencode字符串转换为python类型
-    输入：
-         bytes类型数据
-    返回值：
-         Python类型对象
-    """
+    """Convert the given bencoded string to a Python object.
 
+    Raises:
+        ValueError:
+            If the argument is not of type bytes or is empty
+            If the first byte doesn't match a supported by bencode data type
+
+    Returns:
+        A Python object
+    """
     if not isinstance(data, bytes):
         raise ValueError(
             f"Cannot decode data, expected bytes, got {type(data)} instead."
@@ -219,12 +245,13 @@ def decode(data: bytes) -> Union[bytes, dict, int, list]:
 
 
 def encode(data: Union[bytes, dict, int, list]) -> bytes:
-    """
-    python类型转换为bencode字符串
-    输入：
-         Python类型数据
-    返回值：
-         bencode类型对象
+    """Convert the given Python object to a bencoded string.
+
+    Raises:
+        ValueError: If the provided object type is not supported
+
+    Returns:
+        A bencoded string
     """
     if isinstance(data, bytes):
         return _encode_bytes(data)
@@ -243,4 +270,4 @@ def encode(data: Union[bytes, dict, int, list]) -> bytes:
     )
 
 def readfile(fd):
-    return decode(fd.read())
+        return decode(fd.read())
