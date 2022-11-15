@@ -8,7 +8,7 @@ import bencodepy
 import bencode
 import requests
 
-from settings import SETTINGS
+from Config import SETTINGS
 
 # regex to identify if announce url is UDP
 UDP_REGEX = re.compile(r'udp://[(\[]?(.+?)[)\]]?:([\d]{1,5})(?![\d:])')

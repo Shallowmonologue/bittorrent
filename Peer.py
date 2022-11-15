@@ -1,7 +1,7 @@
 import socket
 import struct
 
-from settings import SETTINGS
+from Config import SETTINGS
 from TorrentWriter import TorrentWriter
 
 
