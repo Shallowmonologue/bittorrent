@@ -25,22 +25,22 @@ class Peer:
 
     def _init_connection(self):
         """
-        Initialize the connection with the peer as:
-        1. connect to peer over TCP with timeout
-        2. send the handshake message
-        3. handle the handshake response
-        4. send the interested message
+        对peer的连接进行初始化, 步骤包含了:
+        1. 通过包含timeout的TCP连接peer
+        2. 传递握手信息
+        3. 处理握手信息的回复
+        4. 发送interested信息
         :return: None
         """
         try:
-            # start TCP connection to the peer with timeout in settings
+            # 开始执行TCP连接, 包含timeout信息
             self.sock.settimeout(SETTINGS['timeout_for_peer'])
             self.sock.connect((self.ip, self.port))
-            # send the very first expected message i.e. handshake
+            # 发送握手信息
             self._send_handshake(self.torrent.metainfo.info_hash)
-            # handle the response handshake by the peer
+            # 处理来自peer的握手信息回复
             self._handle_handshake()
-            # send interested message
+            # 发送interested信息
             self._send_msg(msg_id=2)
             # check for reply
             self._check_buffer()
@@ -364,11 +364,8 @@ class Peer:
         info_hash: 20-byte 20-byte SHA1 hash of the info key in the metainfo file
         peer_id: 20-byte 
         """
-        return (b'\x13' +
-                SETTINGS['protocol_name'] +
-                b'\x00' * 8 +
-                info_hash +
-                SETTINGS['peer_id'])
+        return (b'\x13' + SETTINGS['protocol_name'] +
+                b'\x00' * 8 + info_hash + SETTINGS['peer_id'])
 
 
 class UnexpectedProtocolType(Exception):

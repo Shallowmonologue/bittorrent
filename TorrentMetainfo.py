@@ -1,7 +1,7 @@
 import hashlib
 import os
-import bencode
-import bencodepy
+import Bencode
+
 
 class TorrentMetainfo:
     def __init__(self, filename):
@@ -30,88 +30,86 @@ class TorrentMetainfo:
 
     def get_piece_len_at(self, piece_idx):
         """
-        Get the length of piece at the given piece index.
-        :param piece_idx: piece index
-        :return: length of piece
+        获取给定piece的长度
+        :param piece_idx: piece索引
+        :return: piece长度
         """
         return (self.piece_length if piece_idx < len(self.pieces) - 1
                 else self.length - (len(self.pieces) - 1) * self.piece_length)
 
     def _parse_torrent_file(self, filename):
         """
-        Parse the torrent file and initialize the metainfo.
-        :param filename: file name
+        解析torrent文件并初始化metainfo.
+        :param filename: 文件名
         :return: None
         """
-        # read and decode bencoded file
-        #meta_info = bencodepy.bread(open(filename, 'rb'))
-        meta_info = bencode.readfile(open(filename, 'rb'))
-        # get the info
-        info = bencode.encode(meta_info[b"info"])
-        # compute sha1 hash of info
+        # 读取并解码bencode
+        meta_info = Bencode.readfile(open(filename,'rb'))
+        # 获取info
+        info = Bencode.encode(meta_info[b"info"])
+        # 计算info的哈希值
         sha1_hash = hashlib.sha1(info)
-        # store the info hash
+        # 储存info的哈希值
         self.info_hash = sha1_hash.digest()
         self.info_hash2str = sha1_hash.hexdigest()
-        # update announce_list from meta_info
+        # 获取并更新announce_list
         self.announce_list.append(meta_info[b'announce'].decode())
-        # in case has announce-list
+        # 如果metainfo中存在多个announce, 则逐个添加announce
         if b'announce-list' in meta_info:
             self._add_announces(meta_info[b'announce-list'])
         self._decode_info(meta_info[b'info'])
 
     def _add_announces(self, announces):
         """
-        Add announces from the announce-list.
-        :param announces: announces list
+        添加新的announce至announce-list
+        :param announces: torrent文件中的announces-list
         :return: None
         """
-        # get all announces from announce-list and add to announce_list
+        # 获取announce-list中所有的并完成添加
         for cur_ann_list in announces:
             for bin_announce in cur_ann_list:
                 str_announce = bin_announce.decode()
-                # ensure that the current announce is not same as the base announce
+                # 避免重复添加相同的announce
                 if self.announce_list[0] != str_announce:
                     self.announce_list.append(str_announce)
 
     def _decode_info(self, meta_info):
         """
-        Decode the metainfo and initialize the fields.
+        对meatainfo解码并初始化bitfields
         :param meta_info: metainfo
         :return: None
         """
-        # set name from the meta_info
+        # 设定待下载的文件名
         self.name = meta_info[b'name'].decode()
-        # set piece_length
+        # 设定piece长度
         self.piece_length = meta_info[b"piece length"]
-        # get the pieces and slice into 20-byte pieces
+        # 依照每个pieces20字节长度进行切片
         pieces = meta_info[b'pieces']
         self.pieces = [pieces[i:i + 20] for i in range(0, len(pieces), 20)]
 
-        # in case torrent has multiple files
+        # 如果该torrent文件拥有多个文件
         if b'files' in meta_info:
-            # disable single file
+            # 改变is_single_file的bool值
             self.is_single_file = False
-            # list of files in the torrent
+            # 设定文件list
             self.files = []
-            # traverse all the files in the torrent
             '''
-            files: list of dictionaries like:
+            遍历torrent中所有文件, 并使用dict类型储存:
             [
                 {length: <length of file in integer>, path: [path_seg1, path_seg2, ..., path_segn, filename.ext]},
                 ...
             ]
             '''
             for file in meta_info[b'files']:
-                # create a list of all relative paths of the file
+                # 创建多文件的总路径
                 path_segments = [v.decode('utf-8') for v in file[b'path']]
-                # update the file length and the path
+                # 更新多文件长度与路径
                 self.files.append({
                     'length': file[b'length'],
                     'path': os.path.join(*path_segments)
                 })
-            # set the length as the sum of all files in the torrent
+            # 设定所有文件的总长度和
             self.length = sum(file['length'] for file in self.files)
         else:
-            # if this is a single file torrent
+            # 若为单个文件, 则仅设定其文件长度
             self.length = meta_info[b'length']

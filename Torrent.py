@@ -245,7 +245,7 @@ class Torrent:
         # 若正确, 则将该piece写入磁盘
         self.p_blocks[piece_idx] = None
         self.writer.write_piece(piece_idx, piece)
-        # 将该peice从未完成block list移除
+        # 将该piece从未完成block list移除
         with self.exp_p_blocks_lock:
             self.exp_p_blocks.pop(piece_idx)
 
