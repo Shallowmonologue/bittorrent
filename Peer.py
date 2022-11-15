@@ -42,53 +42,52 @@ class Peer:
             self._handle_handshake()
             # 发送interested信息
             self._send_msg(msg_id=2)
-            # check for reply
+            # 检查回复
             self._check_buffer()
         except Exception:
-            # if an error occurs, mark the peer as unavailable and close the connection
+            # 如果发生错误就关闭连接, 并标记该peer
             self.is_available = False
             self.sock.close()
 
     def _check_buffer(self):
         """
-        Update and handle the buffer.
+        更新并处理缓存
         :return: None
         """
-        # update the buffer
         self._update_buffer()
-        # handle the buffer
         self._handle_buffer()
-        # keep checking the buffer
+        # 循环检查缓存
         if self.buffer_length != 0:
             self._check_buffer()
 
     def _handle_buffer(self):
         """
-        Handle the buffer data i.e if there is sufficient data in the
-        buffer then parse it in the buffer.
+        处理缓冲区数据，若存在足够数据则进行解析
         :return: None
         """
-        # keep parsing till there is any data in the buffer
+        # 若缓存中存在数据则进行解析
         while self.buffer_length:
-            # we need at least 4 bytes to identify the message
+            # 若缓存数据小于4字节无法解析, 所以直接返回
             if self.buffer_length < 4:
                 return
+            # 获取该条报文的长度offset
             prefix_len = struct.unpack('!L', self.buffer[:4])[0]
             offset = 4
             if prefix_len + offset > self.buffer_length:
                 return
             if prefix_len == 0:
-                pass  # keep-alive msg
+                pass
             else:
                 self._decode_msg(self.buffer[offset: offset + prefix_len])
                 offset += prefix_len
+            # 更新buffer中数据
             self.buffer = self.buffer[offset:]
 
     def _send_msg(self, msg_id, **args):
         """
-        Send appropriate message using message id and keyword arguments.
-        :param msg_id: message id
-        :param args: keyword arguments
+        设定发送信息的choke和interested属性
+        :param msg_id: 信息类型
+        :param args: 关键字参数
         :return: None
         """
         if msg_id == 0:  # choke
@@ -104,36 +103,36 @@ class Peer:
 
     def _handle_handshake(self):
         """
-        Handles the handshake message from the peer.
+        处理peer通信的握手信息
         :return: None
         """
-        # msg format: <pstrlen><pstr><reserved><info_hash><peer_id>
-        # Handshake length: 49(fixed) + pstrlen(variable)
+        # 握手信息格式: <pstrlen><pstr><reserved><info_hash><peer_id>
+        # 握手信息长度: 49(fixed) + pstrlen(variable)
         self._update_buffer()
-        pstrlen = self.buffer[0]  # very first byte is pstrlen
-        # keep reading from socket till we get complete handshake
+        pstrlen = self.buffer[0]  # 第一个字节为pstrlen
+        # 循环读取知道收到完整的握手信息
         while self.buffer_length < 49 + pstrlen:
             self._update_buffer()
-        # skip pstrlen and parse the entire handshake data
+        # 跳过pstrlen, 解析整个握手信息
         handshake_data = self.buffer[1: 49 + pstrlen]
-        # parse pstr
+        # 解析pstr
         pstr = handshake_data[:pstrlen]
-        # if the pstr does not match, ignore such peer handshake
+        # 如果pstr与协议名不匹配, 则忽略掉此次握手信息
         if pstr != SETTINGS['protocol_name']:
             raise UnexpectedProtocolType(pstr.decode())
-        # keep data other than handshake in the buffer
+        # 将握手以外的数据保留在缓冲区中
         self.buffer = self.buffer[49 + pstrlen:]
 
     def get_data_from_socket(self):
         """
-        Reads new data from the TCP socket and return it.
-        :return: bytes read from the TCP socket
+        返回TCP socket从的数据
+        :return: 字节类型数据
         """
         return self.sock.recv(SETTINGS['max_ans_size'])
 
     def _update_buffer(self):
         """
-        Reads new data from the TCP socket and updates the buffer.
+        从TCP socket读取数据并更新buffer
         :return: None
         """
         data = self.get_data_from_socket()
@@ -143,8 +142,8 @@ class Peer:
 
     def _send_handshake(self, info_hash):
         """
-        Builds and sends the handshake message using given info_hash
-        :param info_hash: info_hash
+        使用给定的info_hash构建并发送握手消息
+        :param info_hash: info的哈希值
         :return: None
         """
         self.sock.send(self.build_handshake(info_hash))
@@ -152,41 +151,40 @@ class Peer:
     @property
     def buffer_length(self):
         """
-        :return: buffer length as int
+        :return: 缓冲区的数据长度
         """
         return len(self.buffer)
 
     @property
     def name(self):
         """
-        :return: peer name as <ip>:<port>
+        :return: 以<ip>:<port>形式定义的peer
         """
         return '{}:{}'.format(self.ip, self.port)
 
     def run_download(self):
         """
-        Download blocks from the peer.
+        从peer中下载对应block
         :return: None
         """
-        # mark the download as running
+        # 设定该peer正在下载中
         self.is_running = True
-        # keep running download till the peer is available
+        # 若peer可用则进行下载
         while self.is_available:
-            # get the piece index and block index from the torrent
+            # 获取piece索引以及对应的block索引
             piece_idx, block_idx = self.torrent.get_pbi_for_peer(self)
-            # close the connection if the piece index is missing
+            # 若piece索引丢失则关闭该连接
             if piece_idx is None:
                 self._close()
                 break
-            # if no block is present for the piece continue with the next
+            # 若block索引丢失则跳进下次循环
             if block_idx is None:
                 continue
             try:
-                # request the block
+                # 请求下载该block
                 self.request_block(piece_idx, block_idx)
             except Exception:
-                # mark the peer bad and close the connection on error when no pieces are
-                # available from the peer to download
+                # 若peer没有可供下载的pieces, 则标记该peer并关闭连接
                 peer_is_bad = False
                 if self.available_pieces_map is None:
                     peer_is_bad = True
@@ -194,45 +192,44 @@ class Peer:
 
     def request_block(self, piece_idx, block_idx):
         """
-        Request the block of given piece index from the piece of given piece index.
-        :param piece_idx: piece index
-        :param block_idx: block index
+        给定piece索引与block索引, 下载对应block
+        :param piece_idx: piece索引
+        :param block_idx: block索引
         :return: None
         """
-        # mark the processed block that is to be requested
+        # 标记该请求的block
         self.processed_block = (piece_idx, block_idx)
-        # if peer is chocking then:
+        # 如果peer处于choke状态
         if self.peer_choking:
-            # send an interested message to the peer
+            # 发送interested消息
             self._send_msg(msg_id=2)
-            # check for the peer response
+            # 检查peer消息回应
             self._check_buffer()
-            # if peer keeps chocking close the connection with the peer and return
+            # 如果仍不回应则关闭此次连接
             if self.peer_choking:
                 self._close()
                 return
-        # get the piece length with the given piece index from the torrent metainfo
+        # 获取该block所在piece的长度
         piece_len = self.torrent.metainfo.get_piece_len_at(piece_idx)
-        # calculate the begin/offset
+        # 计算block长度的offset
         offset = block_idx * SETTINGS['int_block_len']
-        # calculate the block length
+        # 进而计算剩余block的长度
         block_len = min(piece_len - offset, SETTINGS['int_block_len'])
-        # request for the block using index, begin/offset and length
+        # 通过指定piece索引, block长度, offset
         self._send_msg(msg_id=6,
                        piece_idx=piece_idx, block_len=block_len, offset=offset)
-        # check for the peer response
+        # 检查peer消息回复
         self._check_buffer()
-        # handle incorrect <piece, block>
+        # 处理不正确的block信息
         if self.processed_block is not None:
             self.torrent.handle_incorrect_pbi(*self.processed_block)
             self.processed_block = None
 
     def have_piece(self, piece_idx):
         """
-        Check if we have the given piece index.
-        :param piece_idx: piece index
-        :return: True if available_pieces_map is None or if we have the piece,
-        otherwise False
+        检查指定索引对应的piece是否存在
+        :param piece_idx: piece索引
+        :return: 若存在则返回True
         """
         if self.available_pieces_map is not None:
             return self.available_pieces_map[piece_idx]
@@ -240,59 +237,59 @@ class Peer:
 
     def _decode_msg(self, msg):
         """
-        Decodes bytes encoded message and updates the peer fields accordingly.
-        :param msg: bytes encoded peer message
+        解码消息的字节编码并更新对应的bitfield
+        :param msg: 每条消息的字节编码
         :return: None
         """
-        # get message_id
+        # 获取消息id
         msg_id = msg[0]
-        # choke message
+        # choke
         if msg_id == 0:
             self.peer_choking = True
-        # unchoke message
+        # unchoke
         elif msg_id == 1:
             self.peer_choking = False
-        # interested message
+        # interested
         elif msg_id == 2:
             self.peer_interested = True
-        # not_interested message
+        # not_interested
         elif msg_id == 3:
             self.peer_interested = False
-        # have message: <len=0005><id=4><piece index>
+        # 消息格式: <len=0005><id=4><piece index>
         elif msg_id == 4:
-            # get the piece index from the message
+            # 获取消息对应的piece索引
             idx = struct.unpack('!L', msg[1:5])[0]
-            # mark piece as available in the available_pieces_map
+            # 标记该piece可用
             if self.available_pieces_map is not None:
                 self.available_pieces_map[idx] = True
-        # bitfield message: <len=0001+X><id=5><bitfield>
+        # bitfield格式: <len=0001+X><id=5><bitfield>
         elif msg_id == 5:
-            # get the bitfield bits from the helper method
+            # 从helper方法获取bitfield
             cur_map = TorrentWriter.get_info_about_pieced_from_bytes(msg[1:])
-            # count of available pieces
+            # 计算可用的piece
             pieces_count = len(self.torrent.metainfo.pieces)
-            # update the available_pieces_map according to bitfield bits
+            # 根据bitfield更新piece_map
             self.available_pieces_map = cur_map[:pieces_count]
-        # request message
+        # 请求消息
         elif msg_id == 6:
             pass
-        # piece message: <len=0009+X><id=7><index><begin><block>
+        # piece格式: <len=0009+X><id=7><index><begin><block>
         elif msg_id == 7:
-            # get the index
+            # 获取索引
             piece_idx = struct.unpack('!L', msg[1:5])[0]
-            # get the begin/offset
+            # 获取offect
             offset = struct.unpack('!L', msg[5:9])[0]
-            # get the block
+            # 获取block
             block = msg[9:]
-            # handle the block
+            # 处理该block
             self.torrent.handle_block(
                 piece_idx, offset // SETTINGS['int_block_len'], block)
-            # clear the processed_block after processing the block
+            # 处理结束后清楚该block
             self.processed_block = None
-        # cancel message
+        # 退出该消息
         elif msg_id == 8:
             pass
-        # port message
+        # 端口消息
         elif msg_id == 9:
             pass
         else:
@@ -300,48 +297,48 @@ class Peer:
 
     def _close(self, peer_is_bad=False):
         """
-        Close the peer TCP connection.
-        :param peer_is_bad: boolean value to identify if the peer is bad
+        关闭该peer的TCP连接
+        :param peer_is_bad: 若该peer无法连接则为True
         :return: None
         """
-        # handle incorrect block (if any)
+        # 处理不正确的block
         if self.processed_block is not None:
             self.torrent.handle_incorrect_pbi(*self.processed_block)
-        # handle the peer disconnect
+        # 处理peer退出连接事件
         self.torrent.handle_peer_disconnect(self, peer_is_bad=peer_is_bad)
-        # mark the peer unavailable
+        # 标记该peer不可用
         self.is_available = False
-        # mark that the download from the peer has stopped
+        # 标记该peer不再执行
         self.is_running = False
-        # close the TCP connection
+        # 关闭TCP连接
         self.sock.close()
 
     @staticmethod
     def build_msg(msg_id, **args):
         """
-        Builds a message from the given message id and the args.
-        :param msg_id: message id
-        :param args: zero or more keyword arguments
-        :return: bytes encoded message
+        给定msg_id进行消息创建
+        :param msg_id: message类型
+        :param args: 0或关键字信息
+        :return: 字节编码消息
         """
-        # CHOKE, UNCHOKE, INTERESTED and NOT_INTERESTED don't have any payload and have msg_len=1
+        # choke, unchoke, interested, not_interested的信息长度为1, 且payload为空
         if msg_id in {0, 1, 2, 3}:
             msg_len = b'\x00\x00\x00\x01'
             payload = b''
-        # have: <len=0005><id=4><piece index>
+        # id为4时的payload格式: <len=0005><id=4><piece index>
         elif msg_id == 4:
             msg_len = b'\x00\x00\x00\x05'
             payload = struct.pack('!L', args['piece_idx'])
-        # request: <len=0013><id=6><index><begin><length>
+        # id为6时的payload格式: <len=0013><id=6><index><begin><length>
         elif msg_id == 6:
             msg_len = b'\x00\x00\x00\x0d'
             payload = (struct.pack('!L', args['piece_idx']) +
                        struct.pack('!L', args['offset']) +
                        struct.pack('!L', args['block_len']))
-        # bitfield, piece, cancel, port
+        # bitfield, piece, cancel, port类型
         elif msg_id in {5, 7, 8, 9}:
             raise NotImplementedError()
-        # keep-alive message
+        # 空消息类型
         elif msg_id == -1:
             return b'\x00\x00\x00\x00'
         else:
@@ -352,17 +349,17 @@ class Peer:
     @staticmethod
     def build_handshake(info_hash):
         """
-        Create and return the handshake from the metainfo.
-        :param info_hash: info_hash
-        :return: bytes encoded handshake message
+        从metainfo中创建并返回握手信息
+        :param info_hash: info哈希值
+        :return: 字节编码类型的握手信息
         """
         """
-        Handshake format: <pstrlen><pstr><reserved><info_hash><peer_id>
-        pstrlen: string length of <pstr> (19 in decimal i.e. 0x13)
-        pstr: string identifier of the protocol (BitTorrent protocol)
-        reserved: 8-byte (all zeroes)
-        info_hash: 20-byte 20-byte SHA1 hash of the info key in the metainfo file
-        peer_id: 20-byte 
+        握手信息格式: <pstrlen><pstr><reserved><info_hash><peer_id>
+        pstrlen: <pstr>类型的长度 (0x13)
+        pstr: 协议名称(字符串类型'BitTorrent protocol')
+        reserved: 全0的8字节
+        info_hash: 20字节的SHA1哈希值
+        peer_id: 20字节
         """
         return (b'\x13' + SETTINGS['protocol_name'] +
                 b'\x00' * 8 + info_hash + SETTINGS['peer_id'])

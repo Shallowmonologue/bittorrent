@@ -28,9 +28,9 @@ class Client:
                     args=(), daemon=True)
         t2 = Thread(target=self.torrent.run_download,
                     args=(), daemon=True)
-        t1.start()
+        # t1.start()
         t2.start()
-        t1.join()
+        # t1.join()
         t2.join()
 
     # 设定下载进度条格式
