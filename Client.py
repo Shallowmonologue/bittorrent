@@ -35,11 +35,13 @@ class Client:
 
     # 设定下载进度条格式
     def print_torrents_table_always(self):
-        while True:
+        while self.torrent.progress < 1:
             time.sleep(.5)
             with self.print_lock:
                 self.cls()
                 print(self.get_torrents_table())
+        print("Download finished!")
+
 
     def get_torrents_table(self):
         res = ['Name                         | '
@@ -58,5 +60,4 @@ class Client:
         cur_res.append('{:<5}'.format(cur_peers_count))
         cur_res.append('{:<11}'.format(cur_speed))
         res.append(' | '.join(cur_res))
-
         return '\n'.join(res)

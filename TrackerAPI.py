@@ -3,22 +3,20 @@ import socket
 import struct
 import sys
 import traceback
-
-import bencodepy
-import bencode
 import requests
 
+import bencode
 from Config import SETTINGS
 
-# regex to identify if announce url is UDP
+# 判断当前announce url链接是否为UDP格式
 UDP_REGEX = re.compile(r'udp://[(\[]?(.+?)[)\]]?:([\d]{1,5})(?![\d:])')
 
 
 def get_peers_list_by_torrent_metainfo(metainfo):
     """
-    Get peers list from either HTTP or UDP tracker using metainfo
+    通过metainfo信息，获取http或者udp的peer列表
     :param metainfo: metainfo
-    :return: List of tuples in the form [(ip, port), ...]
+    :return: [(ip,port)]的元组列表
     """
     for announce in metainfo.announce_list:
         try:
@@ -37,9 +35,9 @@ def get_peers_list_by_torrent_metainfo(metainfo):
 
 def _parse_udp_announce_url(announce):
     """
-    Get host and ip from the UDP announce url.
-    :param announce: announce url
-    :return: host and ip
+    得到annouce的链接信息
+    :param announce: announce url链接
+    :return: host ip
     """
     match = re.search(UDP_REGEX, announce)
     host = match.group(1)
@@ -50,25 +48,23 @@ def _parse_udp_announce_url(announce):
 
 def _get_peers_from_http_tracker(announce, metainfo):
     """
-    Get the peers from the HTTP tracker.
-    :param announce: HTTP announce url
+    从HTTP tracker得到peer的信息
+    :param announce: HTTP announce的url链接
     :param metainfo: metainfo
-    :return: List of tuples in the form [(ip, port), ...]
+    :return: [(ip,port)]的元组列表
     """
-    # sending request to http tracker and parsing the response
+
+    # 向http tracker发送请求，并解析该响应
     response = requests.get(announce, _get_http_request_args(metainfo),
                             timeout=SETTINGS['timeout'])
 
-    # parse the bencoded reply and check for any errors
+    # 解析bencode的响应
     peers = bencode.decode(response.content)
 
-
-
-
-    # binary model of peers
+    # 处理binary类型的peer数据
     if isinstance(peers[b'peers'], bytes):
         peers = _get_peers_bin_model(peers[b'peers'])
-    # list of dictionary model of peers
+    # 处理字典列表类型的peer数据
     else:
         peers = _get_peers_list_model(peers[b'peers'])
     return peers
@@ -76,11 +72,12 @@ def _get_peers_from_http_tracker(announce, metainfo):
 
 def _get_http_request_args(metainfo):
     """
-    Return request arguments to be used during HTTP tracker request
-    :param metainfo: metainfo
-    :return: Dictionary of request arguments
+    返回对HTTP tracker请求时用到的参数
+    :param metainfo:metainfo
+    :return:请求参数的字典
     """
-    # More info: https://wiki.theory.org/index.php/BitTorrentSpecification#Tracker_Request_Parameters
+
+    # 参考: https://wiki.theory.org/index.php/BitTorrentSpecification#Tracker_Request_Parameters
     request = {
         'info_hash': metainfo.info_hash,
         'peer_id': SETTINGS['peer_id'],
@@ -93,19 +90,20 @@ def _get_http_request_args(metainfo):
 
 def _get_peers_from_udp_tracker(announce, metainfo):
     """
-    Get the peers from the UDP tracker.
-    :param announce: UDP announce url
+    从UDP tracker得到peer的信息
+    :param announce: UDP announce的url链接
     :param metainfo: metainfo
-    :return: List of tuples in the form [(ip, port), ...]
+    :return: [(ip,port)]的元组列表
     """
-    # More info: http://bittorrent.org/beps/bep_0015.html
-    # open a UDP socket to connect to UDP tracker
+
+    # 参考: http://bittorrent.org/beps/bep_0015.html
+    # 建立一个连接UDP tracker的UDP套接字
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-        # set timeout for the request
+        # 设置超时参数
         s.settimeout(SETTINGS['timeout'])
-        # get host and port from announce url
+        # 获取announce的host port
         host, port = _parse_udp_announce_url(announce)
-        # try to connect the host
+        # 连接到announce
         s.connect((host, port))
         '''
         connect request:
@@ -115,12 +113,12 @@ def _get_peers_from_udp_tracker(announce, metainfo):
         12      32-bit integer  transaction_id
         16
         '''
-        # form the connect request
-        transaction_id = b'\x00\x00\x00\xff'  # random transaction_id
+        # 形成连接请求
+        transaction_id = b'\x00\x00\x00\xff'  # 随机初始化transaction_id
         req = b''.join((b'\x00\x00\x04\x17\x27\x10\x19\x80',  # protocol_id
                         b'\x00\x00\x00\x00',
                         transaction_id))
-        # send the connect request
+        # 发送request请求
         s.send(req)
         '''
         connect response:
@@ -130,26 +128,27 @@ def _get_peers_from_udp_tracker(announce, metainfo):
         8       64-bit integer  connection_id
         16
         '''
-        # receive the response from the host
+        # 接收responce
         res = s.recv(16)
-        # get the IPv4 announce request
+        # 获取IPv4 announce请求
         req = _get_udp_announce_request(res[8:16], transaction_id, metainfo)
-        # send the IPv4 announce request
+        # 发送IPv4 announce请求
         s.send(req)
-        # receive the IPv4 announce response
+        # 接收IPv4 announce请求
         res = s.recv(SETTINGS['max_ans_size'])
-        # IPv4 announce response contains peer ip and port offset 20 onwards (in binary model)
+        # IPV4 响应包含ip和port 但有20位偏移（二进制下）
         return _get_peers_bin_model(res[20:])
 
 
 def _get_udp_announce_request(connection_id, transaction_id, metainfo):
     """
-    Return the IPv4 connect request from connection_id, transaction_id, metainfo
-    :param connection_id: connection_id to be used during request
-    :param transaction_id: transaction_id to be used during request
+    通过connection_id,transaction_id和metainfo，返回IPV4连接请求
+    :param connection_id: 请求时的connection_id
+    :param transaction_id: 请求时的transaction_id
     :param metainfo: metainfo
-    :return: UDP announce request in bytes
+    :return: bytes类型的UDP请求
     """
+
     """
     Offset  Size    Name    Value
     0       64-bit integer  connection_id
@@ -192,9 +191,9 @@ def _get_udp_announce_request(connection_id, transaction_id, metainfo):
 
 def _get_peers_list_model(peers_list):
     """
-    Return peers list from list of dictionaries.
-    :param peers_list: list of dictionaries in the form [{b'ip': <ip>, b'port': <port>} ...]
-    :return: List of tuples in the form [(ip, port), ...]
+    返回字典列表的peer列表
+    :param peers_list:字典列表[{b'ip':<ip>,b'port':<port>}]
+    :return:[(ip,port),..]的元组列表
     """
     res_peers = []
     for peers_dict in peers_list:
@@ -204,10 +203,11 @@ def _get_peers_list_model(peers_list):
 
 def _get_peers_bin_model(data):
     """
-    Return peers list from binary data.
-    :param data: Peers data in bytes
-    :return: List of tuples in the form [(ip, port), ...]
+    返回binary类型的peer列表
+    :param data:bytes类型的peer数据
+    :return:[(ip,port),..]的元组列表
     """
+    # 每6位是一组(ip,port),前四个ip，后两个port
     chunks = [data[i:i + 6] for i in range(0, len(data), 6)]
     return [(_get_ip(chunk[:4]),
              int.from_bytes(chunk[4:], byteorder='big'))
@@ -216,9 +216,9 @@ def _get_peers_bin_model(data):
 
 def _get_ip(bin_ip):
     """
-    Return string IP from bytes.
-    :param bin_ip: IP in bytes
-    :return: string IP
+    从bytes类型返回IP字符串
+    :param bin_ip: bytes类型的IP
+    :return: IP字符串
     """
     res = []
     for i in range(4):
